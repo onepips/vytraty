@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Мої витрати</title>
+<meta name="description" content="Швидкий облік витрат, працює без інтернету">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#14533a" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c3325" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Витрати">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --top: #14533a;
+    --top-2: rgba(255,255,255,.11);
+    --top-3: rgba(255,255,255,.2);
+    --on-top: #ffffff;
+    --on-top-muted: rgba(255,255,255,.72);
+    --bg: #f3f5f2;
+    --card: #ffffff;
+    --text: #15201a;
+    --muted: #66736b;
+    --line: #e2e7e3;
+    --track: #e9ede9;
+    --danger: #ff5a5f;
+    --accent: #14533a;
+    --btn: #14533a;
+    --toast: #15201a;
+    --on-toast: #ffffff;
+    --toast-accent: #7ee2b0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --top: #0c3325;
+      --bg: #0d1411;
+      --card: #161f1b;
+      --text: #e6ede8;
+      --muted: #94a39a;
+      --line: #25302b;
+      --track: #25312b;
+      --accent: #6fd6a6;
+      --btn: #1f7a55;
+      --toast: #e6ede8;
+      --on-toast: #0d1411;
+      --toast-accent: #14533a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  button, input { font-family: inherit; }
+  button { cursor: pointer; touch-action: manipulation; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- Верх ---------- */
+  .top {
+    background: var(--top);
+    color: var(--on-top);
+    padding: calc(env(safe-area-inset-top) + 8px) 16px 18px;
+    border-radius: 0 0 28px 28px;
+  }
+  .topbar { display: flex; align-items: center; gap: 6px; min-height: 48px; }
+  .topbar h1 { flex: 1; margin: 0; font-size: 19px; font-weight: 700; white-space: nowrap; }
+  .cur { display: flex; background: var(--top-2); border-radius: 12px; padding: 3px; }
+  .cur button {
+    border: 0; background: transparent; color: var(--on-top-muted);
+    font-size: 16px; font-weight: 700; min-width: 38px; height: 36px; border-radius: 9px;
+  }
+  .cur button[aria-checked="true"] { background: #fff; color: #14533a; }
+  .icon-btn {
+    width: 44px; height: 44px; border: 0; border-radius: 12px;
+    background: transparent; color: var(--on-top); display: grid; place-items: center;
+  }
+  .icon-btn:active { background: var(--top-2); }
+
+  .amount {
+    display: flex; align-items: baseline; gap: 8px; margin-top: 10px;
+    padding: 10px 18px; background: var(--top-2);
+    border: 2px solid transparent; border-radius: 20px;
+    transition: border-color .15s, background-color .15s;
+  }
+  .amount:focus-within { border-color: rgba(255,255,255,.5); }
+  .amount input {
+    flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent;
+    color: var(--on-top); font-size: 44px; font-weight: 700; line-height: 1.15;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  }
+  .amount input::placeholder { color: rgba(255,255,255,.35); }
+  .amount .sign { font-size: 28px; font-weight: 600; color: var(--on-top-muted); }
+  .amount.error { border-color: var(--danger); background: rgba(255,90,95,.2); }
+  .amount.shake { animation: shake .45s; }
+  @keyframes shake {
+    15% { transform: translateX(-9px); } 30% { transform: translateX(8px); }
+    45% { transform: translateX(-6px); } 60% { transform: translateX(5px); }
+    75% { transform: translateX(-2px); } 100% { transform: none; }
+  }
+  .hint { margin: 8px 6px 0; font-size: 14px; color: var(--on-top-muted); min-height: 1.3em; }
+  .hint.error { color: #ffc2c4; font-weight: 600; }
+
+  .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .cat {
+    border: 0; background: var(--top-2); color: var(--on-top); border-radius: 18px;
+    min-height: 78px; padding: 10px 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+    font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center;
+    transition: transform .08s, background-color .15s;
+  }
+  .cat:active { transform: scale(.95); background: var(--top-3); }
+  .cat .dot { width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 3px rgba(255,255,255,.14); }
+  .cat.done { animation: flash .6s; }
+  @keyframes flash { 0% { background: var(--c); } 100% { background: var(--top-2); } }
+
+  /* ---------- Низ ---------- */
+  main { padding: 18px 16px calc(110px + env(safe-area-inset-bottom)); }
+  .month-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .month-nav h2 { margin: 0; font-size: 21px; text-align: center; }
+  .nav-btn {
+    width: 48px; height: 48px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font-size: 28px; line-height: 1; padding-bottom: 4px;
+  }
+  .nav-btn:disabled { opacity: .3; cursor: default; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 4px; font-size: 17px; }
+
+  .donut-wrap { position: relative; width: 210px; height: 210px; margin: 2px auto 20px; }
+  .donut-wrap svg { width: 100%; height: 100%; display: block; }
+  .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .total { font-size: 25px; font-weight: 800; letter-spacing: -.01em; }
+  .total.long { font-size: 19px; }
+  .sub { margin-top: 3px; font-size: 13px; color: var(--muted); }
+
+  .breakdown { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .bd-row { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+  .bd-row .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); flex: none; }
+  .bd-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bd-pct { color: var(--muted); width: 3.4em; text-align: right; }
+  .bd-sum { font-weight: 700; text-align: right; min-width: 6em; }
+  .meter { height: 8px; margin-top: 7px; border-radius: 4px; background: var(--track); overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 4px; background: var(--c); }
+  .other-cur { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
+
+  .entries { list-style: none; margin: 0; padding: 0; }
+  .entries li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .entries li:first-child { border-top: 0; }
+  .entries .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); flex: none; }
+  .e-main { flex: 1; min-width: 0; }
+  .e-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .e-date { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .e-sum { font-weight: 700; white-space: nowrap; }
+  .del {
+    width: 44px; height: 44px; flex: none; border: 0; border-radius: 12px;
+    background: transparent; color: var(--muted); font-size: 24px; line-height: 1;
+  }
+  .del:active { background: var(--track); color: var(--danger); }
+  .empty { margin: 0; padding: 14px 0 6px; text-align: center; color: var(--muted); }
+
+  /* ---------- Повідомлення знизу ---------- */
+  .toast {
+    position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    max-width: 488px; margin: 0 auto; z-index: 10;
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 6px 6px 18px; border-radius: 16px;
+    background: var(--toast); color: var(--on-toast);
+    box-shadow: 0 10px 30px rgba(0,0,0,.28);
+    transform: translateY(150%); opacity: 0; pointer-events: none;
+    transition: transform .25s, opacity .25s;
+  }
+  .toast.show { transform: none; opacity: 1; pointer-events: auto; }
+  .toast span { flex: 1; font-weight: 600; font-size: 16px; }
+  .toast button {
+    border: 0; background: transparent; color: var(--toast-accent);
+    font-size: 16px; font-weight: 800; padding: 13px 14px; border-radius: 10px;
+  }
+
+  /* ---------- Налаштування ---------- */
+  dialog {
+    width: 100%; max-width: 520px; max-height: 90vh;
+    margin: auto auto 0; padding: 0; border: 0;
+    border-radius: 26px 26px 0 0; background: var(--card); color: var(--text);
+  }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  .sheet { padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); }
+  .sheet h2 { margin: 0 0 8px; font-size: 21px; }
+  .sheet p { margin: 0 0 6px; color: var(--muted); line-height: 1.45; }
+  .btn {
+    display: block; width: 100%; min-height: 56px; margin-top: 10px;
+    border: 0; border-radius: 16px; font-size: 17px; font-weight: 700;
+  }
+  .btn.primary { background: var(--btn); color: #fff; }
+  .btn.secondary { background: var(--track); color: var(--text); }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn:active { opacity: .8; }
+  .status { min-height: 1.4em; margin: 12px 2px 0; font-size: 15px; font-weight: 600; color: var(--accent); }
+  .status.err { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <h1>Мої витрати</h1>
+      <div class="cur" id="cur" role="radiogroup" aria-label="Валюта"></div>
+      <button class="icon-btn" id="openSettings" aria-label="Налаштування">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+
+    <label class="amount" id="amountBox">
+      <input id="amount" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0,00" aria-label="Сума">
+      <span class="sign" id="curSign">€</span>
+    </label>
+    <p class="hint" id="hint">Введіть суму й торкніться категорії</p>
+
+    <div class="cats" id="cats"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="month-nav">
+    <button class="nav-btn" id="prev" aria-label="Попередній місяць">‹</button>
+    <h2 id="monthTitle"></h2>
+    <button class="nav-btn" id="next" aria-label="Наступний місяць">›</button>
+  </div>
+
+  <section class="card">
+    <div class="donut-wrap">
+      <svg viewBox="0 0 42 42" id="donut" aria-hidden="true"></svg>
+      <div class="donut-center">
+        <div class="total num" id="total"></div>
+        <div class="sub" id="totalSub">за місяць</div>
+      </div>
+    </div>
+    <ul class="breakdown" id="breakdown"></ul>
+    <p class="other-cur" id="otherCur" hidden></p>
+  </section>
+
+  <section class="card">
+    <h3>Записи</h3>
+    <ul class="entries" id="entries"></ul>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <span id="toastText"></span>
+  <button id="toastUndo">Скасувати</button>
+</div>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <div class="sheet">
+    <h2 id="settingsTitle">Налаштування</h2>
+    <p>Усі записи зберігаються тільки на цьому телефоні. Час від часу зберігайте резервну копію і надсилайте її собі в Telegram чи на пошту. Тоді дані не загубляться, навіть якщо зміните телефон.</p>
+    <p id="countInfo"></p>
+    <button class="btn primary" id="backupBtn">Зберегти резервну копію</button>
+    <button class="btn secondary" id="restoreBtn">Відновити з копії</button>
+    <p class="status" id="status" role="status"></p>
+    <button class="btn ghost" id="closeSettings">Закрити</button>
+  </div>
+</dialog>
+<input type="file" id="restoreFile" hidden>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Довідники ----------
+  const CATS = [
+    { id: 'food',      name: 'Продукти',              color: '#f2b01e' },
+    { id: 'cafe',      name: 'Кафе / їжа поза домом', color: '#ff7a45' },
+    { id: 'transport', name: 'Транспорт',             color: '#3d9cf0' },
+    { id: 'home',      name: 'Дім і рахунки',         color: '#a07cf5' },
+    { id: 'health',    name: 'Здоров’я',              color: '#f0506e' },
+    { id: 'clothes',   name: 'Одяг',                  color: '#e872c4' },
+    { id: 'fun',       name: 'Розваги',               color: '#22c3d6' },
+    { id: 'sport',     name: 'Спорт',                 color: '#8fd14f' },
+    { id: 'other',     name: 'Інше',                  color: '#a8a29a' },
+  ];
+  const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+  const CURS = { EUR: '€', UAH: '₴', PLN: 'zł', USD: '$' };
+  const MONTHS = ['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+  const MONTHS_GEN = ['січня','лютого','березня','квітня','травня','червня','липня','серпня','вересня','жовтня','листопада','грудня'];
+
+  const KEY = 'moi-vytraty.expenses.v1';
+  const CUR_KEY = 'moi-vytraty.currency';
+
+  // ---------- Допоміжне ----------
+  const $ = id => document.getElementById(id);
+  const nf = new Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = (cents, cur) => nf.format(cents / 100) + ' ' + CURS[cur];
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const plural = (n, one, few, many) => {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return one;
+    if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+    return many;
+  };
+  const records = n => n + ' ' + plural(n, 'запис', 'записи', 'записів');
+  const vibrate = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+
+  function isValid(e) {
+    return e && typeof e.id === 'string' && e.id.length > 0 && e.id.length < 64
+      && Number.isInteger(e.cents) && e.cents > 0 && e.cents < 1e13
+      && Object.prototype.hasOwnProperty.call(CAT, e.cat)
+      && Number.isFinite(e.time)
+      && Object.prototype.hasOwnProperty.call(CURS, e.cur);
+  }
+  const clean = e => ({ id: e.id, cents: e.cents, cat: e.cat, time: e.time, cur: e.cur });
+
+  // ---------- Збереження на телефоні ----------
+  function load() {
+    try {
+      const list = JSON.parse(localStorage.getItem(KEY) || '[]');
+      return Array.isArray(list) ? list.filter(isValid).map(clean) : [];
+    } catch (e) { return []; }
+  }
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(expenses));
+      return true;
+    } catch (e) {
+      alert('Не вдалося зберегти запис на телефоні. Можливо, закінчилося місце.');
+      return false;
+    }
+  }
+  let persistAsked = false;
+  function askPersist() {
+    // Просимо браузер не видаляти дані автоматично
+    if (persistAsked) return;
+    persistAsked = true;
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch (e) {}
+  }
+
+  let expenses = load();
+  let currency = 'EUR';
+  try { const c = localStorage.getItem(CUR_KEY); if (CURS[c]) currency = c; } catch (e) {}
+
+  const now = () => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; };
+  let view = now();
+  const isCurrentOrLater = v => { const n = now(); return v.y > n.y || (v.y === n.y && v.m >= n.m); };
+
+  // ---------- Верхня частина ----------
+  const amountEl = $('amount'), amountBox = $('amountBox'), hintEl = $('hint');
+
+  $('cur').innerHTML = Object.entries(CURS).map(([code, sign]) =>
+    `<button role="radio" data-cur="${code}" aria-label="${code}">${sign}</button>`).join('');
+  function renderCurrency() {
+    document.querySelectorAll('#cur button').forEach(b =>
+      b.setAttribute('aria-checked', String(b.dataset.cur === currency)));
+    $('curSign').textContent = CURS[currency];
+  }
+  $('cur').addEventListener('click', e => {
+    const b = e.target.closest('button[data-cur]');
+    if (!b) return;
+    currency = b.dataset.cur;
+    try { localStorage.setItem(CUR_KEY, currency); } catch (err) {}
+    renderCurrency();
+    render();
+  });
+
+  $('cats').innerHTML = CATS.map(c =>
+    `<button class="cat" data-cat="${c.id}" style="--c:${c.color}"><span class="dot"></span><span>${c.name}</span></button>`).join('');
+
+  // Дозволяємо лише цифри і один роздільник (кома або крапка), до 2 знаків після нього
+  amountEl.addEventListener('input', () => {
+    const raw = amountEl.value.replace(/[^\d.,]/g, '');
+    const m = raw.match(/^(\d*)([.,]?)(\d{0,2})/);
+    const v = m ? m[1].slice(0, 9) + m[2] + m[3] : '';
+    if (v !== amountEl.value) amountEl.value = v;
+    clearError();
+  });
+  amountEl.addEventListener('keydown', e => { if (e.key === 'Enter') amountEl.blur(); });
+
+  function parseAmount(s) {
+    s = s.replace(/\s/g, '').replace(',', '.');
+    if (!/^(\d+(\.\d{0,2})?|\.\d{1,2})$/.test(s)) return null;
+    const cents = Math.round(parseFloat(s) * 100);
+    return cents > 0 ? cents : null;
+  }
+
+  function showError() {
+    amountBox.classList.remove('shake');
+    void amountBox.offsetWidth; // перезапуск анімації
+    amountBox.classList.add('error', 'shake');
+    hintEl.textContent = 'Спершу введіть суму';
+    hintEl.classList.add('error');
+    vibrate([40, 50, 40]);
+    amountEl.focus();
+  }
+  function clearError() {
+    if (!amountBox.classList.contains('error')) return;
+    amountBox.classList.remove('error', 'shake');
+    hintEl.textContent = 'Введіть суму й торкніться категорії';
+    hintEl.classList.remove('error');
+  }
+  amountBox.addEventListener('animationend', () => amountBox.classList.remove('shake'));
+
+  // Не даємо кнопкам забирати фокус з поля (на комп'ютері)
+  $('cats').addEventListener('mousedown', e => { if (e.target.closest('.cat')) e.preventDefault(); });
+  $('cats').addEventListener('click', e => {
+    const btn = e.target.closest('.cat');
+    if (btn) addExpense(btn.dataset.cat, btn);
+  });
+
+  function addExpense(catId, btn) {
+    const cents = parseAmount(amountEl.value);
+    if (cents == null) { showError(); return; }
+    const entry = { id: uid(), cents, cat: catId, time: Date.now(), cur: currency };
+    expenses.push(entry);
+    if (!save()) { expenses.pop(); return; }
+    askPersist();
+    amountEl.value = '';
+    clearError();
+    vibrate(15);
+    if (btn) { btn.classList.remove('done'); void btn.offsetWidth; btn.classList.add('done'); }
+    view = now();
+    render();
+    toast(`${money(cents, entry.cur)} · ${CAT[catId].name}`, () => {
+      expenses = expenses.filter(e => e.id !== entry.id);
+      save();
+      render();
+    });
+  }
+
+  // ---------- Повідомлення з «Скасувати» ----------
+  let toastTimer = 0, toastUndo = null;
+  function toast(text, undo) {
+    $('toastText').textContent = text;
+    toastUndo = undo;
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 4000);
+  }
+  function hideToast() {
+    $('toast').classList.remove('show');
+    toastUndo = null;
+  }
+  $('toastUndo').addEventListener('click', () => {
+    const fn = toastUndo;
+    clearTimeout(toastTimer);
+    hideToast();
+    if (fn) fn();
+  });
+
+  // ---------- Нижня частина: місяць ----------
+  $('prev').addEventListener('click', () => {
+    view = view.m === 0 ? { y: view.y - 1, m: 11 } : { y: view.y, m: view.m - 1 };
+    render();
+  });
+  $('next').addEventListener('click', () => {
+    if (isCurrentOrLater(view)) return;
+    view = view.m === 11 ? { y: view.y + 1, m: 0 } : { y: view.y, m: view.m + 1 };
+    render();
+  });
+
+  function fmtDate(t) {
+    const d = new Date(t);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${d.getDate()} ${MONTHS_GEN[d.getMonth()]}, ${hh}:${mm}`;
+  }
+
+  function render() {
+    if (isCurrentOrLater(view)) view = now();
+    $('monthTitle').textContent = `${MONTHS[view.m]} ${view.y}`;
+    $('next').disabled = isCurrentOrLater(view);
+
+    const month = expenses
+      .filter(e => { const d = new Date(e.time); return d.getFullYear() === view.y && d.getMonth() === view.m; })
+      .sort((a, b) => b.time - a.time);
+    const mine = month.filter(e => e.cur === currency);
+
+    // Суми за категоріями (тільки в обраній валюті)
+    const sums = {};
+    let total = 0;
+    for (const e of mine) { sums[e.cat] = (sums[e.cat] || 0) + e.cents; total += e.cents; }
+    const ranked = Object.entries(sums).sort((a, b) => b[1] - a[1]);
+
+    // Кільце
+    const R = 15.91549430918954; // довжина кола = 100
+    let svg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="var(--track)" stroke-width="5"/>`;
+    let acc = 0;
+    const gap = ranked.length > 1 ? 0.8 : 0;
+    for (const [cat, sum] of ranked) {
+      const p = sum / total * 100;
+      const len = Math.max(p - gap, 0.3);
+      svg += `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${CAT[cat].color}" stroke-width="5"
+        stroke-dasharray="${len} ${100 - len}" stroke-dashoffset="${25 - acc}"/>`;
+      acc += p;
+    }
+    $('donut').innerHTML = svg;
+    const totalText = money(total, currency);
+    $('total').textContent = totalText;
+    $('total').classList.toggle('long', totalText.length > 10);
+    $('totalSub').textContent = total ? 'за місяць' : 'ще немає витрат';
+
+    // Список категорій
+    $('breakdown').innerHTML = ranked.map(([cat, sum]) => {
+      const c = CAT[cat];
+      const pct = sum / total * 100;
+      const pctText = pct < 1 ? '<1%' : Math.round(pct) + '%';
+      return `<li style="--c:${c.color}">
+        <div class="bd-row"><span class="dot"></span><span class="bd-name">${c.name}</span>
+          <span class="bd-pct num">${pctText}</span><span class="bd-sum num">${money(sum, currency)}</span></div>
+        <div class="meter"><i style="width:${Math.max(pct, 1).toFixed(1)}%"></i></div>
+      </li>`;
+    }).join('');
+
+    // Записи в інших валютах за цей місяць
+    const others = {};
+    for (const e of month) if (e.cur !== currency) others[e.cur] = (others[e.cur] || 0) + e.cents;
+    const otherList = Object.entries(others).map(([cur, c]) => money(c, cur));
+    $('otherCur').hidden = !otherList.length;
+    $('otherCur').textContent = otherList.length
+      ? `Ще цього місяця в інших валютах: ${otherList.join(' · ')}. Щоб побачити їх у діаграмі, перемкніть валюту вгорі.`
+      : '';
+
+    // Усі записи місяця (нові зверху)
+    $('entries').innerHTML = month.length
+      ? month.map(e => {
+          const c = CAT[e.cat];
+          return `<li style="--c:${c.color}">
+            <span class="dot"></span>
+            <div class="e-main"><div class="e-name">${c.name}</div><div class="e-date">${fmtDate(e.time)}</div></div>
+            <span class="e-sum num">${money(e.cents, e.cur)}</span>
+            <button class="del" data-id="${e.id}" aria-label="Видалити запис">×</button>
+          </li>`;
+        }).join('')
+      : '<li class="empty">Цього місяця ще немає записів</li>';
+  }
+
+  $('entries').addEventListener('click', e => {
+    const b = e.target.closest('.del');
+    if (!b) return;
+    const idx = expenses.findIndex(x => x.id === b.dataset.id);
+    if (idx < 0) return;
+    const [removed] = expenses.splice(idx, 1);
+    save();
+    render();
+    toast(`Видалено: ${money(removed.cents, removed.cur)} · ${CAT[removed.cat].name}`, () => {
+      expenses.push(removed);
+      save();
+      render();
+    });
+  });
+
+  // ---------- Налаштування: резервна копія ----------
+  const dlg = $('settings');
+  const statusEl = $('status');
+  function setStatus(text, isErr) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('err', !!isErr);
+  }
+  $('openSettings').addEventListener('click', () => {
+    $('countInfo').textContent = `Зараз на телефоні: ${records(expenses.length)}.`;
+    setStatus('');
+    dlg.showModal();
+  });
+  $('closeSettings').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+  $('backupBtn').addEventListener('click', async () => {
+    const d = new Date();
+    const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const name = `vytraty-${stamp}.json`;
+    const data = { app: 'moi-vytraty', version: 1, exportedAt: d.toISOString(), currency, expenses };
+    const file = new File([JSON.stringify(data)], name, { type: 'application/json' });
+
+    // На телефоні відкриваємо меню «Поділитися» (Telegram, пошта, Файли…)
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Мої витрати — резервна копія' });
+        setStatus(`Готово. У копії ${records(expenses.length)}.`);
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // користувач закрив меню
+    }
+    // Інакше просто завантажуємо файл
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setStatus(`Файл «${name}» збережено в «Завантаження». Надішліть його собі в Telegram чи на пошту.`);
+  });
+
+  $('restoreBtn').addEventListener('click', () => $('restoreFile').click());
+  $('restoreFile').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const list = Array.isArray(data) ? data : data && data.expenses;
+      if (!Array.isArray(list)) throw new Error('format');
+      const good = list.filter(isValid).map(clean);
+      if (list.length && !good.length) throw new Error('format');
+      const have = new Set(expenses.map(x => x.id));
+      const fresh = good.filter(x => !have.has(x.id));
+      const wasEmpty = expenses.length === 0;
+      expenses = expenses.concat(fresh);
+      if (!save()) { expenses = load(); return; }
+      if (wasEmpty && data && CURS[data.currency]) {
+        currency = data.currency;
+        try { localStorage.setItem(CUR_KEY, currency); } catch (err) {}
+        renderCurrency();
+      }
+      render();
+      const dup = good.length - fresh.length;
+      setStatus(`Відновлено: додано ${records(fresh.length)}.` + (dup ? ` Повтори пропущено: ${dup}.` : ''));
+      $('countInfo').textContent = `Зараз на телефоні: ${records(expenses.length)}.`;
+    } catch (err) {
+      setStatus('Це не схоже на файл резервної копії. Оберіть файл, що починається з «vytraty-».', true);
+    }
+  });
+
+  // ---------- Запуск ----------
+  renderCurrency();
+  render();
+  // Якщо додаток відкрили знову в новому місяці — оновлюємо екран
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+
+  // Робота без інтернету
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+})();
+</script>
+</body>
+</html>
